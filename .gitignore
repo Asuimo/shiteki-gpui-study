@@ -1,0 +1,7 @@
+target/
+*.exe
+*.bin
+*.txt
+bin/
+*.o
+.env
