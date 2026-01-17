@@ -39,11 +39,9 @@ impl TimerView {
             let mut ascx = ascx_ref.clone();
             async move {
                 loop {
-                    println!("1");
                     ascx.background_executor()
                         .timer(Duration::from_secs(1))
                         .await;
-                    println!("2");
                     let still_running =
                         time_ticket.update(&mut ascx, |model: &mut TimerModel, model_cx| {
                             if model.seconds > 0 {
@@ -55,7 +53,6 @@ impl TimerView {
                                 false
                             }
                         });
-                    println!("4");
                     match still_running {
                         Ok(true) => continue,
                         _ => break,
