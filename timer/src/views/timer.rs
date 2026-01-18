@@ -31,6 +31,14 @@ impl Render for TimerView {
                         timer_ticket.update(app, |model, cx| {
                             model.input(key, cx);
                         });
+                    } else if key == "enter" {
+                        timer_ticket.update(app, |model, cx| {
+                            if !model.is_running {
+                                model.start();
+                            }
+
+                            cx.notify();
+                        })
                     }
                 }
             })
@@ -50,6 +58,9 @@ impl TimerView {
     pub fn new(icx: &mut Context<TimerView>) -> Self {
         let time_ticket = icx.new(|_| TimerModel::new());
         let focus_handle = icx.focus_handle();
+        // 起動時にクリックなしでフォーカスさせる。
+
+        //
         time_ticket.update(icx, |model, cx| {
             println!("TimerViewStarted");
             model.down(cx);
