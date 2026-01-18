@@ -1,6 +1,4 @@
-use gpui::{AsyncApp, Entity, IntoElement, Render, Window, div, prelude::*, rgb};
-
-use std::time::Duration;
+use gpui::{Entity, FocusHandle, IntoElement, Render, Window, div, prelude::*, rgb};
 
 use crate::models::timer::TimerModel;
 
@@ -8,6 +6,7 @@ use crate::elements::{reload::reload_element, start::start_element, time::time_e
 
 pub struct TimerView {
     time_ticket: Entity<TimerModel>,
+    focus_handle: FocusHandle,
 }
 
 impl Render for TimerView {
@@ -16,12 +15,25 @@ impl Render for TimerView {
         let time = time_ticket.read(icx);
         div()
             .flex()
+            .track_focus(&self.focus_handle)
             .flex_col()
             .gap_3()
             .justify_center()
             .items_center()
             .size_full()
             .bg(rgb(0xf0f0f0))
+            .on_key_down({
+                let timer_ticket = self.time_ticket.clone();
+                move |event, _window, app| {
+                    let key = event.keystroke.key.as_str();
+                    println!("Key pressed: {}", key);
+                    if ("0"..="9").contains(&key) || key == "backspace" {
+                        timer_ticket.update(app, |model, cx| {
+                            model.input(key, cx);
+                        });
+                    }
+                }
+            })
             .child(time_element(time))
             .child(
                 div()
@@ -29,7 +41,7 @@ impl Render for TimerView {
                     .gap_2()
                     .child(div().flex().child(""))
                     .child(start_element(time, time_ticket.clone()))
-                    .child(reload_element()),
+                    .child(reload_element(time_ticket)),
             )
     }
 }
@@ -37,12 +49,16 @@ impl Render for TimerView {
 impl TimerView {
     pub fn new(icx: &mut Context<TimerView>) -> Self {
         let time_ticket = icx.new(|_| TimerModel::new());
-
+        let focus_handle = icx.focus_handle();
         time_ticket.update(icx, |model, cx| {
+            println!("TimerViewStarted");
             model.down(cx);
         });
 
-        Self { time_ticket }
+        Self {
+            time_ticket,
+            focus_handle,
+        }
 
         // let mut view = Self { time_ticket };
         // view.down(icx);

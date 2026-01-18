@@ -1,6 +1,9 @@
-use gpui::{IntoElement, div, prelude::*, px, rgb};
+use gpui::{Entity, IntoElement, MouseButton, div, prelude::*, px, rgb};
 
-pub fn reload_element() -> impl IntoElement {
+use crate::models::timer::TimerModel;
+
+pub fn reload_element(time_ticket: Entity<TimerModel>) -> impl IntoElement {
+    let time_ticket = time_ticket.clone();
     div()
         .flex()
         .bg(rgb(0x202020))
@@ -11,4 +14,14 @@ pub fn reload_element() -> impl IntoElement {
         .text_xl()
         .text_color(rgb(0xefefef))
         .child("↩︎")
+        .on_mouse_down(
+            MouseButton::Left,
+            //
+            move |_event, _window, app| {
+                time_ticket.update(app, |model, cx| {
+                    println!("reload!");
+                    model.reload(cx);
+                })
+            },
+        )
 }
