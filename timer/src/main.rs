@@ -1,7 +1,4 @@
-use gpui::{
-    App, Application, Bounds, Context, SharedString, Window, WindowBounds, WindowOptions, div,
-    prelude::*, px, rgb, size,
-};
+use gpui::{App, Application, Bounds, WindowBounds, WindowOptions, prelude::*, px, size};
 
 mod elements;
 mod models;
