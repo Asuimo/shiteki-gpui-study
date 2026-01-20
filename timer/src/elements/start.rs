@@ -22,7 +22,7 @@ pub fn start_element(time: &TimerModel, timer_ticket: Entity<TimerModel>) -> imp
                     if time.is_running {
                         time.stop();
                     } else {
-                        time.start();
+                        time.start(cx);
                     }
                     // println!("{}", time.is_running);
                     cx.notify();

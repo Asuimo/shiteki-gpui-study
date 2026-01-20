@@ -11,5 +11,5 @@ pub fn time_element(time: &TimerModel) -> impl IntoElement {
         .text_xl()
         .text_center()
         .text_color(rgb(0xfafafa))
-        .child(format!("Time is money: {}", time.seconds))
+        .child(format!("{:02}:{:02}:{:02}", time.h, time.m, time.s))
 }

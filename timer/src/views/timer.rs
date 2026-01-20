@@ -34,7 +34,7 @@ impl Render for TimerView {
                     } else if key == "enter" {
                         timer_ticket.update(app, |model, cx| {
                             if !model.is_running {
-                                model.start();
+                                model.start(cx);
                             }
 
                             cx.notify();
@@ -59,12 +59,6 @@ impl TimerView {
         let time_ticket = icx.new(|_| TimerModel::new());
         let focus_handle = icx.focus_handle();
         // 起動時にクリックなしでフォーカスさせる。
-
-        //
-        time_ticket.update(icx, |model, cx| {
-            println!("TimerViewStarted");
-            model.down(cx);
-        });
 
         Self {
             time_ticket,
