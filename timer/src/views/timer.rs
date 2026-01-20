@@ -43,6 +43,7 @@ impl Render for TimerView {
                 }
             })
             .child(time_element(time))
+            .child(quick_add_element(icx))
             .child(
                 div()
                     .flex()
