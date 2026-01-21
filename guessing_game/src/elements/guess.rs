@@ -16,7 +16,7 @@ pub fn guess_element(state_ticket: Entity<GameState>) -> impl IntoElement {
             // Fn(&MouseDownEvent, &mut Window, &mut App)
             move |_event, _window, app_cx| {
                 state_ticket.update(app_cx, |state, model_cx| {
-                    println!("{}{}", state.digit_10, state.digit_1);
+                    println!("{}", state.current_input);
                     state.sub_guess(model_cx);
                 })
             },

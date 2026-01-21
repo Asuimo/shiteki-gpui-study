@@ -45,16 +45,16 @@ impl Render for GameView {
                 move |event, _window, cx| {
                     let key = event.keystroke.key.as_str();
                     println!("Key pressed: {}", key);
-                    if ("0"..="9").contains(&key) {
-                        state_ticket.update(cx, |game, model_cx| {
-                            if game.selected == 0 {
-                                game.digit_10 = key.to_string().into();
-                            } else {
-                                game.digit_1 = key.to_string().into();
-                            }
-                            model_cx.notify();
-                        })
-                    }
+                    state_ticket.update(cx, |game, model_cx| {
+                        if ("0"..="9").contains(&key) && game.current_input.len() < 2 {
+                            game.current_input = format!("{}{}", game.current_input, key).into();
+                        } else if key == "backspace" {
+                            let mut chars = game.current_input.chars();
+                            chars.next_back();
+                            game.current_input = chars.as_str().to_string().into();
+                        }
+                        model_cx.notify();
+                    })
                 }
             })
             .child(title_element())

@@ -4,33 +4,25 @@ use rand::Rng;
 
 pub struct GameState {
     secret_number: u32,
-    pub digit_10: SharedString,
-    pub digit_1: SharedString,
+    pub current_input: SharedString,
     pub message: SharedString,
-    pub selected: usize,
 }
 
 impl GameState {
     pub fn new() -> Self {
         GameState {
             secret_number: rand::rng().random_range(1..=99),
-            digit_10: String::new().into(),
-            digit_1: String::new().into(),
+            current_input: String::new().into(),
             message: String::new().into(),
-            selected: 0,
         }
     }
     pub fn reload(&mut self) {
         self.secret_number = rand::rng().random_range(1..=99);
-        self.digit_10 = String::new().into();
-        self.digit_1 = String::new().into();
+        self.current_input = String::new().into();
         self.message = String::new().into();
-        self.selected = 0;
     }
     pub fn sub_guess(&mut self, cx: &mut Context<Self>) {
-        let input_number = format!("{}{}", self.digit_10, self.digit_1);
-
-        if let Ok(num) = input_number.parse::<u32>() {
+        if let Ok(num) = self.current_input.parse::<u32>() {
             let result = self.guess(num);
             println!("Guess: {}", num);
 

@@ -2,11 +2,11 @@ use gpui::{AsyncApp, Context, WeakEntity};
 use std::time::Duration;
 
 pub struct TimerModel {
-    pub h: u8,
-    pub m: u8,
-    pub s: u8,
-    // 表示時刻をの10進数として表現したもの。
-    pub raw: u32,
+    pub hours: u8,
+    pub minutes: u8,
+    pub seconds: u8,
+    // 表示時刻を10進数として表現したもの。表示には使わない。
+    pub numeric_display: u32,
     pub is_running: bool,
     _timer_task: Option<gpui::Task<()>>,
 }
@@ -14,24 +14,24 @@ pub struct TimerModel {
 impl TimerModel {
     pub fn new() -> Self {
         TimerModel {
-            h: 0,
-            m: 0,
-            s: 0,
-            raw: 0,
+            hours: 0,
+            minutes: 5,
+            seconds: 0,
+            numeric_display: 0,
             is_running: false,
             _timer_task: None,
         }
     }
 
-    fn raw_to_time(raw: u32) -> (u8, u8, u8) {
-        let h = (raw / 10000) as u8;
-        let m = ((raw % 10000) / 100) as u8;
-        let s = (raw % 100) as u8;
-        (h, m, s)
+    fn raw_to_time(&mut self) {
+        self.hours = (self.numeric_display / 10000) as u8;
+        self.minutes = ((self.numeric_display % 10000) / 100) as u8;
+        self.seconds = (self.numeric_display % 100) as u8;
     }
 
-    fn time_to_raw(h: u8, m: u8, s: u8) -> u32 {
-        h as u32 * 10000 + m as u32 * 100 + s as u32
+    fn time_to_raw(&mut self) {
+        self.numeric_display =
+            self.hours as u32 * 10000 + self.minutes as u32 * 100 + self.seconds as u32;
     }
 
     pub fn reload(&mut self, cx: &mut Context<TimerModel>) {
@@ -39,7 +39,7 @@ impl TimerModel {
             self.stop();
         }
 
-        (self.h, self.m, self.s) = Self::raw_to_time(self.raw);
+        self.raw_to_time();
         cx.notify();
     }
 
@@ -57,19 +57,19 @@ impl TimerModel {
                         .await;
                     let result = we.update(&mut acx, |this, model_cx| {
                         println!("is_running: {}", this.is_running);
-                        if this.s > 0 && this.is_running {
-                            this.s -= 1;
+                        if this.seconds > 0 && this.is_running {
+                            this.seconds -= 1;
                             model_cx.notify();
                             true
-                        } else if this.s == 0 && this.m > 0 {
-                            this.s = 59;
-                            this.m -= 1;
+                        } else if this.seconds == 0 && this.minutes > 0 {
+                            this.seconds = 59;
+                            this.minutes -= 1;
                             model_cx.notify();
                             true
-                        } else if this.s == 0 && this.m == 0 && this.h > 0 {
-                            this.s = 59;
-                            this.m = 59;
-                            this.h -= 1;
+                        } else if this.seconds == 0 && this.minutes == 0 && this.hours > 0 {
+                            this.seconds = 59;
+                            this.minutes = 59;
+                            this.hours -= 1;
                             model_cx.notify();
                             true
                         } else {
@@ -91,40 +91,54 @@ impl TimerModel {
         if self.is_running {
             return;
         }
-        // 処理のため一度10進数にする。
-        let mut time_ten = self.h as u32 * 10000 + self.m as u32 * 100 + self.s as u32;
 
         if key == "backspace" {
-            time_ten /= 10;
+            self.numeric_display /= 10;
         } else {
             let digit: u32 = key.parse().unwrap();
-            time_ten = time_ten * 10 + digit;
+            self.numeric_display = self.numeric_display * 10 + digit;
         }
-        time_ten %= 1000000;
-        self.raw = time_ten;
+        self.numeric_display %= 1000000;
+
         // 10進数を元に戻す。
-        (self.h, self.m, self.s) = Self::raw_to_time(time_ten);
+        self.raw_to_time();
+
         cx.notify();
     }
 
     pub fn start(&mut self, cx: &mut Context<TimerModel>) {
-        self.m += self.s / 60;
-        self.h += self.m / 60;
-        self.m %= 60;
-        self.s %= 60;
-        if self.h > 99 {
-            self.h = 99;
-            self.m = 59;
-            self.s = 59;
-        }
-        self.raw = Self::time_to_raw(self.h, self.m, self.s);
+        // 12:59:99 とかを 13:00:39に直す。
+        self.normalize();
+
+        self.raw_to_time();
 
         self.down(cx);
         cx.notify();
         self.is_running = true;
     }
+
+    pub fn add(&mut self, add_time: u32) {
+        self.is_running = false;
+        self.numeric_display += add_time;
+        self.raw_to_time();
+        self.normalize();
+    }
+
     pub fn stop(&mut self) {
         self.is_running = false;
         self._timer_task = None;
+    }
+
+    fn normalize(&mut self) {
+        self.minutes += (self.seconds >= 60) as u8;
+        self.hours += (self.minutes >= 60) as u8;
+        self.minutes %= 60;
+        self.seconds %= 60;
+        if self.hours > 99 {
+            self.hours = 99;
+            self.minutes = 59;
+            self.seconds = 59;
+        }
+        self.time_to_raw();
     }
 }

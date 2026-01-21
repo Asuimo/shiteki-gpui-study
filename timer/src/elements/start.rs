@@ -6,7 +6,7 @@ pub fn start_element(time: &TimerModel, timer_ticket: Entity<TimerModel>) -> imp
     div()
         .flex()
         .bg(rgb(0x202020))
-        .size(px(30.0))
+        .size(px(40.0))
         .rounded(px(5.0))
         .justify_center()
         .items_center()
