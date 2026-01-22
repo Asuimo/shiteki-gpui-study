@@ -5,13 +5,13 @@ use crate::models::timer::{TimerModel, TimerStatus};
 pub fn start_element(time: &TimerModel, timer_ticket: Entity<TimerModel>) -> impl IntoElement {
     div()
         .flex()
-        .bg(rgb(0x202020))
+        .bg(rgb(0x4a5c4a))
         .size(px(40.0))
         .rounded(px(5.0))
         .justify_center()
         .items_center()
         .text_xl()
-        .text_color(rgb(0xefefef))
+        .text_color(rgb(0xd6e0d6))
         .child(if time.status == TimerStatus::Running {
             "‖"
         } else {

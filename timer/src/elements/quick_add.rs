@@ -17,18 +17,18 @@ pub fn quick_add_element(mut amount: u32, time_ticket: Entity<TimerModel>) -> im
     minutes %= 60;
 
     let label = if hours > 0 {
-        format!("+{}:{}:{}", hours, minutes, seconds)
+        format!("+{}:{:02}:{:02}", hours, minutes, seconds)
     } else if minutes > 0 {
-        format!("+{}:{}", minutes, seconds)
+        format!("+{}:{:02}", minutes, seconds)
     } else {
-        format!("+0:{}", seconds)
+        format!("+0:{:02}", seconds)
     };
 
     div()
         .flex()
         .flex_row()
-        .bg(rgb(0x333333))
-        .text_color(rgb(0xfafafa))
+        .bg(rgb(0x4a5c4a))
+        .text_color(rgb(0xd6e0d6))
         .rounded(px(4.0))
         .child(label)
         .on_mouse_down(MouseButton::Left, move |_event, _window, app| {

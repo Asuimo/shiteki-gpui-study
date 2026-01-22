@@ -1,5 +1,6 @@
-use gpui::prelude::*;
-use gpui::{Entity, FocusHandle, IntoElement, Render, Window, div, px, rgb};
+use gpui::{Animation, Entity, FocusHandle, IntoElement, Render, Window, div, px, rgb};
+use gpui::{AnimationExt, prelude::*};
+use std::time::Duration;
 
 use crate::models::timer::TimerModel;
 use crate::models::timer::TimerStatus;
@@ -52,7 +53,21 @@ impl Render for TimerView {
                 div()
                     .relative()
                     .size(px(200.))
-                    .child(progress_circle_element(0.3))
+                    .child({
+                        let progress = time.current_seconds as f32 / time.total_seconds as f32;
+
+                        if time.status == TimerStatus::Running {
+                            progress_circle_element(1.0)
+                                .with_animation(
+                                    "id",
+                                    Animation::new(Duration::from_secs(time.total_seconds as u64)),
+                                    |circle, delta| progress_circle_element(progress - delta),
+                                )
+                                .into_any_element()
+                        } else {
+                            progress_circle_element(progress).into_any_element()
+                        }
+                    })
                     .child(
                         div()
                             .absolute()
@@ -63,9 +78,15 @@ impl Render for TimerView {
                             .child(time_element(time)),
                     ),
             )
-            // .child(progress_circle_element())
-            // .child(time_element(time))
-            .child(quick_add_element(30, time_ticket.clone()))
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .child(quick_add_element(30, time_ticket.clone()))
+                    .child(div().child(quick_add_element(100, time_ticket.clone())))
+                    .child(div().child(quick_add_element(500, time_ticket.clone()))),
+            )
             .child(
                 div()
                     .flex()

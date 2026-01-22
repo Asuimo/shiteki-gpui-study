@@ -8,6 +8,7 @@ pub struct TimerModel {
     pub seconds: u8,
     // 表示時刻を10進数として表現したもの。表示には使わない。入力処理用。初期値保存用。
     pub raw_time_digits: u32,
+    // アニメーション用の秒数
     pub current_seconds: u32,
     pub total_seconds: u32,
     pub status: TimerStatus,
@@ -26,11 +27,11 @@ impl TimerModel {
     pub fn new() -> Self {
         TimerModel {
             hours: 0,
-            minutes: 5,
+            minutes: 0,
             seconds: 0,
-            raw_time_digits: 500,
-            current_seconds: 300,
-            total_seconds: 300,
+            raw_time_digits: 0,
+            current_seconds: 0,
+            total_seconds: 0,
             status: TimerStatus::Idle,
             _timer_task: None,
         }
