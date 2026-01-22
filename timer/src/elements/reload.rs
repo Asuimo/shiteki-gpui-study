@@ -1,12 +1,12 @@
 use gpui::{Entity, IntoElement, MouseButton, div, prelude::*, px, rgb};
 
-use crate::models::timer::TimerModel;
+use crate::models::timer::{TimerModel, TimerStatus};
 
 pub fn reload_element(
-    time: &TimerModel,
+    time_model: &TimerModel,
     time_ticket: Entity<TimerModel>,
 ) -> Option<impl IntoElement> {
-    if !time.is_running || time.numeric_display == 0 {
+    if time_model.status == TimerStatus::Idle || time_model.raw_time_digits == 0 {
         return None;
     }
 
@@ -21,12 +21,12 @@ pub fn reload_element(
             .justify_center()
             .items_center()
             .text_color(rgb(0xefefef))
-            .cursor_pointer() // マウスを乗せた時に指アイコンにする
-            .hover(|s| s.bg(rgb(0x404040))) // ホバー時の反応
+            .cursor_pointer()
+            .hover(|s| s.bg(rgb(0x404040)))
             .child("↩︎")
             .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                 ticket.update(cx, |model, cx| {
-                    model.reload(cx);
+                    model.reset(cx);
                 });
             }),
     )

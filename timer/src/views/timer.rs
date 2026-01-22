@@ -2,9 +2,11 @@ use gpui::prelude::*;
 use gpui::{Entity, FocusHandle, IntoElement, Render, Window, div, px, rgb};
 
 use crate::models::timer::TimerModel;
+use crate::models::timer::TimerStatus;
 
 use crate::elements::{
-    quick_add::quick_add_element, reload::reload_element, start::start_element, time::time_element,
+    progress_circle::progress_circle_element, quick_add::quick_add_element, reload::reload_element,
+    start::start_element, time::time_element,
 };
 
 pub struct TimerView {
@@ -24,7 +26,7 @@ impl Render for TimerView {
             .justify_center()
             .items_center()
             .size_full()
-            .bg(rgb(0x000000))
+            .bg(rgb(0xd6e0d6))
             .on_key_down({
                 let timer_ticket = self.time_ticket.clone();
                 move |event, _window, app| {
@@ -36,10 +38,11 @@ impl Render for TimerView {
                         });
                     } else if key == "enter" {
                         timer_ticket.update(app, |model, cx| {
-                            if !model.is_running {
+                            if model.status == TimerStatus::Paused
+                                || model.status == TimerStatus::Idle
+                            {
                                 model.start(cx);
                             }
-
                             cx.notify();
                         })
                     }
@@ -47,16 +50,21 @@ impl Render for TimerView {
             })
             .child(
                 div()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(150.0)) // 円の大きさ
-                    .rounded_full() // これで円になる
-                    .border_2() // 枠線が必要なら
-                    .border_color(rgb(0xffffff))
-                    .bg(rgb(0x4285f4))
-                    .child(time_element(time)),
+                    .relative()
+                    .size(px(200.))
+                    .child(progress_circle_element(0.3))
+                    .child(
+                        div()
+                            .absolute()
+                            .inset_0()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(time_element(time)),
+                    ),
             )
+            // .child(progress_circle_element())
+            // .child(time_element(time))
             .child(quick_add_element(30, time_ticket.clone()))
             .child(
                 div()
