@@ -1,7 +1,10 @@
 use gpui::{Canvas, Half, PathBuilder, canvas, point, prelude::*, px, rgb};
 use std::f32::consts::*;
 
-pub fn progress_circle_element(progress: f32) -> Canvas<()> {
+pub fn progress_circle_element(mut progress: f32) -> Canvas<()> {
+    if progress <= 0. {
+        progress = 1.
+    }
     canvas(
         // FnOnce(Bounds<Pixels>, &mut Window, &mut App)
         |_, _, _| {},
@@ -38,7 +41,7 @@ pub fn progress_circle_element(progress: f32) -> Canvas<()> {
                     point(center.x, center.y - radius),
                 );
                 builder.close();
-            } else {
+            } else if progress > 0.0 {
                 builder.arc_to(
                     point(radius, radius),
                     px(0.),

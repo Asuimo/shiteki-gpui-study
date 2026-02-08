@@ -2,15 +2,19 @@ use gpui::{AsyncApp, Context, WeakEntity};
 use std::time::Duration;
 
 pub struct TimerModel {
-    // hms各2桁まで この値を表示する。
+    // 表示、入力のためのhms、最終的にはここを動かす。
     pub hours: u8,
     pub minutes: u8,
     pub seconds: u8,
-    // 表示時刻を10進数として表現したもの。表示には使わない。入力処理用。初期値保存用。
+    // 表示時刻のけたを10進数として表現したもの。表示には使わない。入力処理用。初期値保存用。
     pub raw_time_digits: u32,
     // アニメーション用の秒数
-    pub current_seconds: u32,
+    // pausedの時のみstartを押すとき更新する。
+    pub progress: f32,
+    pub progress_as_secs: f32,
+    // idleの時のみstartを押すとき更新する。
     pub total_seconds: u32,
+    // 現在の状態
     pub status: TimerStatus,
     _timer_task: Option<gpui::Task<()>>,
 }
@@ -30,10 +34,57 @@ impl TimerModel {
             minutes: 0,
             seconds: 0,
             raw_time_digits: 0,
-            current_seconds: 0,
+            progress: 1.,
+            progress_as_secs: 0.,
             total_seconds: 0,
             status: TimerStatus::Idle,
             _timer_task: None,
+        }
+    }
+
+    pub fn inter_run_timer(&mut self, cx: &mut Context<TimerModel>) {
+        match self.status {
+            TimerStatus::Idle => {
+                self.start(cx);
+            }
+            TimerStatus::Paused => {
+                self.resume(cx);
+            }
+            _ => {
+                println!("どこかで間違った仕様をしている。(into_run_timer())");
+                return;
+            }
+        }
+    }
+
+    pub fn inter_pause_timer(&mut self, cx: &mut Context<Self>) {
+        match self.status {
+            TimerStatus::Running => {
+                self.pause(cx);
+            }
+            _ => {
+                println!("どこかで間違った仕様をしている。(into_pause_timer())");
+                return;
+            }
+        }
+    }
+
+    pub fn inter_reload(&mut self, cx: &mut Context<Self>) {
+        match self.status {
+            TimerStatus::Running => {
+                self.pause(cx);
+                self.reset(cx);
+            }
+            TimerStatus::Paused => {
+                self.reset(cx);
+            }
+            TimerStatus::Finished => {
+                self.reset(cx);
+            }
+            _ => {
+                println!("どこかで間違った仕様をしている。(into_reload_timer())");
+                return;
+            }
         }
     }
 
@@ -50,9 +101,15 @@ impl TimerModel {
             self.hours as u32 * 10000 + self.minutes as u32 * 100 + self.seconds as u32;
     }
 
-    fn update_seconds_from_hms(&mut self) {
-        self.current_seconds =
-            self.hours as u32 * 3600 + self.minutes as u32 * 60 + self.seconds as u32;
+    /// hmsからcurrent_secondsを更新する。
+    fn update_progress_from_hms(&mut self) {
+        self.progress =
+            (self.hours as f32 * 3600.0 + self.minutes as f32 * 60.0 + self.seconds as f32)
+                / self.total_seconds as f32;
+    }
+
+    fn update_progress_as_secs(&mut self) {
+        self.progress_as_secs = self.progress * self.total_seconds as f32;
     }
 
     fn init_total_seconds(&mut self) {
@@ -68,25 +125,20 @@ impl TimerModel {
                     loop {
                         cx.background_executor().timer(Duration::from_secs(1)).await;
                         let result = we.update(&mut cx, |this, model_cx| {
-                            println!("status: {:?}", this.status);
-
                             if this.seconds > 0 && this.status == TimerStatus::Running {
                                 this.seconds -= 1;
                                 model_cx.notify();
-                                this.update_seconds_from_hms();
                                 true
                             } else if this.seconds == 0 && this.minutes > 0 {
                                 this.seconds = 59;
                                 this.minutes -= 1;
                                 model_cx.notify();
-                                this.update_seconds_from_hms();
                                 true
                             } else if this.seconds == 0 && this.minutes == 0 && this.hours > 0 {
                                 this.seconds = 59;
                                 this.minutes = 59;
                                 this.hours -= 1;
                                 model_cx.notify();
-                                this.update_seconds_from_hms();
                                 true
                             } else {
                                 false
@@ -125,9 +177,16 @@ impl TimerModel {
 
     pub fn start(&mut self, cx: &mut Context<TimerModel>) {
         self.normalize();
-        self.apply_digits();
         self.init_total_seconds();
-        self.update_seconds_from_hms();
+        if self.total_seconds == 0 {
+            return;
+        }
+        self.status = TimerStatus::Running;
+        self.run_count_down(cx);
+        cx.notify();
+    }
+
+    pub fn resume(&mut self, cx: &mut Context<TimerModel>) {
         self.status = TimerStatus::Running;
         self.run_count_down(cx);
         cx.notify();
@@ -140,9 +199,16 @@ impl TimerModel {
         self.normalize();
     }
 
+    pub fn pause(&mut self) {
+        self.status = TimerStatus::Paused;
+        self._timer_task = None;
+        self.update_progress_as_secs();
+    }
+
     pub fn stop(&mut self) {
         self.status = TimerStatus::Paused;
         self._timer_task = None;
+        self.update_progress_from_hms();
     }
 
     // Idleに戻して時間を前のIdleの時の値に戻す。

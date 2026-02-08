@@ -1,4 +1,4 @@
-use gpui::{Animation, Entity, FocusHandle, IntoElement, Render, Window, div, px, rgb};
+use gpui::{Animation, Entity, FocusHandle, IntoElement, Render, Timer, Window, div, px, rgb};
 use gpui::{AnimationExt, prelude::*};
 use std::time::Duration;
 
@@ -54,18 +54,25 @@ impl Render for TimerView {
                     .relative()
                     .size(px(200.))
                     .child({
-                        let progress = time.current_seconds as f32 / time.total_seconds as f32;
+                        let current_progress = time.progress;
+                        let current_progress_as_secs = time.progress_as_secs;
+                        let current_status = time.status;
 
-                        if time.status == TimerStatus::Running {
-                            progress_circle_element(1.0)
+                        if current_status == TimerStatus::Running && current_progress_as_secs > 0.0
+                        {
+                            progress_circle_element(current_progress)
                                 .with_animation(
                                     "id",
-                                    Animation::new(Duration::from_secs(time.total_seconds as u64)),
-                                    |circle, delta| progress_circle_element(progress - delta),
+                                    Animation::new(Duration::from_secs_f32(
+                                        current_progress_as_secs,
+                                    )),
+                                    move |_circle, delta| {
+                                        progress_circle_element(current_progress * (1.0 - delta))
+                                    },
                                 )
                                 .into_any_element()
                         } else {
-                            progress_circle_element(progress).into_any_element()
+                            progress_circle_element(current_progress).into_any_element()
                         }
                     })
                     .child(
@@ -99,6 +106,12 @@ impl Render for TimerView {
                         ),
                     ),
             )
+            .child(match time.status {
+                TimerStatus::Idle => div().child("idle"),
+                TimerStatus::Running => div().child("running"),
+                TimerStatus::Paused => div().child("paused"),
+                TimerStatus::Finished => div().child("finished"),
+            })
     }
 }
 
