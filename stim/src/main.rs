@@ -3,11 +3,8 @@ use gpui::{
     KeyDownEvent, MouseButton, PathBuilder, WeakEntity, Window, WindowBounds, WindowOptions,
     canvas, div, point, prelude::*, px, rgb, size,
 };
-
-use rodio::source::SineWave;
-use rodio::{Decoder, OutputStream, Sink, Source};
 use std::f32::consts::{FRAC_PI_2, PI};
-use std::io::Cursor;
+
 use std::time::{Duration, Instant};
 
 struct TimerView {
@@ -209,6 +206,13 @@ impl Render for TimerView {
         let timer_ticket = self.timer_ticket.clone();
         let timer_model = self.timer_ticket.read(cx);
 
+        let background_color = match timer_model.status {
+            TimerStatus::Idle => rgb(0xd6e0d6),
+            TimerStatus::Running => rgb(0xd6e0d6),
+            TimerStatus::Paused => rgb(0xd6dce0),
+            TimerStatus::Finished => rgb(0xd76a1d),
+        };
+
         if timer_model.status == TimerStatus::Running {
             cx.on_next_frame(window, move |_model, _window, cx| {
                 cx.notify();
@@ -222,7 +226,7 @@ impl Render for TimerView {
             .justify_center()
             .items_center()
             .size_full()
-            .bg(rgb(0xd6e0d6))
+            .bg(background_color)
             .p_5()
             .on_key_down(Self::key_handler(timer_ticket.clone()))
             .child(
@@ -399,14 +403,29 @@ impl TimerModel {
     }
 
     fn play_finish_sound() {
-        std::thread::spawn(|| {
-            let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-            let sink = Sink::try_new(&stream_handle).unwrap();
+        use rodio::{Decoder, OutputStream, Sink, source::*};
+        use std::io::Cursor;
 
-            let source = rodio::source::SineWave::new(440.0)
-                .take_duration(std::time::Duration::from_secs_f32(1.5))
-                .amplify(0.2);
-            sink.append(source);
+        let sound_data = include_bytes!("../assets/finish_sound.mp3");
+        std::thread::spawn(move || {
+            let Ok((_stream, stream_handle)) = OutputStream::try_default() else {
+                return;
+            };
+            let Ok(sink) = Sink::try_new(&stream_handle) else {
+                return;
+            };
+
+            let cursor = Cursor::new(sound_data);
+
+            if let Ok(source) = Decoder::new(cursor) {
+                sink.append(source);
+            } else {
+                eprintln!("MP3のデコードに失敗しました");
+                let backup_source = SineWave::new(440.0)
+                    .take_duration(Duration::from_millis(1500))
+                    .amplify(0.15);
+                sink.append(backup_source);
+            }
             sink.sleep_until_end();
         });
     }
@@ -490,6 +509,6 @@ fn main() {
             },
             |_, cx| cx.new(|view_cx| TimerView::new(view_cx)),
         )
-        .unwrap();
+        .expect("Failed to open main window");
     });
 }
