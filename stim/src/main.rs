@@ -3,7 +3,11 @@ use gpui::{
     KeyDownEvent, MouseButton, PathBuilder, WeakEntity, Window, WindowBounds, WindowOptions,
     canvas, div, point, prelude::*, px, rgb, size,
 };
+
+use rodio::source::SineWave;
+use rodio::{Decoder, OutputStream, Sink, Source};
 use std::f32::consts::{FRAC_PI_2, PI};
+use std::io::Cursor;
 use std::time::{Duration, Instant};
 
 struct TimerView {
@@ -38,8 +42,9 @@ impl TimerView {
                 .flex()
                 .justify_center()
                 .items_center()
-                .rounded(px(5.0))
-                .size(px(40.0))
+                .rounded(px(20.0))
+                .h(px(40.))
+                .w_full()
                 .bg(rgb(0x4a5c4a))
                 .text_color(rgb(0xd6e0d6))
                 .child(label)
@@ -74,8 +79,9 @@ impl TimerView {
                 .flex()
                 .justify_center()
                 .items_center()
-                .rounded(px(5.0))
-                .size(px(40.0))
+                .rounded(px(20.0))
+                .h(px(40.))
+                .w_full()
                 .bg(rgb(0x4a5c4a))
                 .text_color(rgb(0xd6e0d6))
                 .child("↩︎")
@@ -121,7 +127,7 @@ impl TimerView {
             |_, _, _| {},
             move |bounds, _, window, _app| {
                 let center = bounds.center();
-                let radius = bounds.size.width.half().half();
+                let radius = bounds.size.width.half();
                 let line_width = px(5.);
                 let angle = -FRAC_PI_2 + 2.0 * PI * progress;
                 let progress_point = point(
@@ -178,8 +184,9 @@ impl TimerView {
             println!("Key pressed: {}", key);
             if ("0"..="9").contains(&key) {
                 timer_ticket.update(app, |model, cx| {
-                    let digit = key.parse::<u8>().unwrap();
-                    model.push_digit(digit, cx);
+                    if let Ok(digit) = key.parse::<u8>() {
+                        model.push_digit(digit, cx);
+                    }
                 });
             } else if key == "backspace" {
                 timer_ticket.update(app, |model, cx| {
@@ -216,6 +223,7 @@ impl Render for TimerView {
             .items_center()
             .size_full()
             .bg(rgb(0xd6e0d6))
+            .p_5()
             .on_key_down(Self::key_handler(timer_ticket.clone()))
             .child(
                 div()
@@ -224,23 +232,30 @@ impl Render for TimerView {
                     .child(Self::progress_circle_element(
                         timer_model.gen_progress_ratio(),
                     ))
-                    .absolute()
-                    .inset_0()
-                    .child(Self::time_display_element(timer_model)),
+                    .child(
+                        div()
+                            .absolute()
+                            .inset_0()
+                            .flex()
+                            .justify_center()
+                            .items_center()
+                            .child(Self::time_display_element(timer_model)),
+                    ),
             )
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .gap(px(3.))
-                    .child(div().when_some(
+                    .w_full()
+                    .gap(px(5.))
+                    .when_some(
                         self.toggle_button_element(&timer_model.status, timer_ticket.clone()),
                         |this, button| this.child(button),
-                    ))
-                    .child(div().when_some(
+                    )
+                    .when_some(
                         self.reset_button_element(&timer_model.status, timer_ticket.clone()),
                         |this, button| this.child(button),
-                    )),
+                    ),
             )
     }
 }
@@ -353,13 +368,6 @@ impl TimerModel {
         cx.notify();
     }
 
-    fn sync_display_digits(&mut self, cx: &mut Context<Self>) {
-        self.time_digits = self.display_hours as u32 * 10000
-            + self.display_minutes as u32 * 100
-            + self.display_seconds as u32;
-        cx.notify();
-    }
-
     fn notify_digits_display(&mut self, cx: &mut Context<Self>) {
         self.display_hours = (self.time_digits / 10000) as u8;
         self.display_minutes = ((self.time_digits % 10000) / 100) as u8;
@@ -388,6 +396,19 @@ impl TimerModel {
         } else {
             (self.base_secs - self.total_elapsed_secs).max(0.0)
         }
+    }
+
+    fn play_finish_sound() {
+        std::thread::spawn(|| {
+            let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+            let sink = Sink::try_new(&stream_handle).unwrap();
+
+            let source = rodio::source::SineWave::new(440.0)
+                .take_duration(std::time::Duration::from_secs_f32(1.5))
+                .amplify(0.2);
+            sink.append(source);
+            sink.sleep_until_end();
+        });
     }
 
     fn consume_one_second(&mut self, cx: &mut Context<Self>) -> bool {
@@ -422,7 +443,7 @@ impl TimerModel {
                 async move {
                     loop {
                         cx.background_executor()
-                            .timer(Duration::from_millis(200))
+                            .timer(Duration::from_millis(100))
                             .await;
                         let shoud_stop = we
                             .update(&mut cx, |this, model_cx| {
@@ -432,12 +453,14 @@ impl TimerModel {
                                     if elapsed > (this.elapsed_secs + 1) as f32 {
                                         this.elapsed_secs += 1;
                                         this.consume_one_second(model_cx);
+                                        println!("{}", elapsed);
                                         model_cx.notify();
                                     }
                                     let remaining = (this.base_secs - elapsed).max(0.0);
 
                                     if remaining <= 0.0 {
                                         this.status = TimerStatus::Finished;
+                                        TimerModel::play_finish_sound();
                                         this._timer_task = None;
                                         model_cx.notify();
                                         return true;
@@ -459,7 +482,7 @@ impl TimerModel {
 
 fn main() {
     Application::new().run(|cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(500.), px(500.)), cx);
+        let bounds = Bounds::centered(None, size(px(300.), px(300.)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
